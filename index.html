@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion Shopify</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f8; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: white; border-radius: 12px; padding: 2.5rem; width: 440px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
+    .logo-dot { width: 32px; height: 32px; background: #5C6AC4; border-radius: 8px; }
+    h1 { font-size: 20px; color: #1a1a2e; }
+    .subtitle { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    .form { margin-top: 2rem; }
+    label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px 14px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; color: #111827; outline: none; transition: border-color 0.2s; }
+    input:focus { border-color: #5C6AC4; }
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    button { width: 100%; margin-top: 1.5rem; padding: 12px; background: #5C6AC4; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    button:hover { background: #4959bd; }
+    .secure { text-align: center; margin-top: 1rem; font-size: 12px; color: #9ca3af; }
+
+    .token-section { display: none; margin-top: 2rem; }
+    .token-section.visible { display: block; }
+    .success { background: #d1fae5; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #065f46; margin-bottom: 1rem; }
+    .token-box { background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; word-break: break-all; color: #111827; margin-bottom: 8px; }
+    .copy-btn { width: 100%; padding: 10px; background: #059669; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .copy-btn:hover { background: #047857; }
+    .step-info { background: #eff6ff; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #1d4ed8; margin-top: 1rem; }
+
+    .error { background: #fee2e2; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #991b1b; margin-top: 1rem; display: none; }
+    .error.visible { display: block; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <div>
+      <h1>Connexion Shopify</h1>
+      <div class="subtitle">Autorisez l'accès à votre boutique</div>
+    </div>
+  </div>
+
+  <div class="form" id="form-section">
+    <label for="shop">Domaine de votre boutique</label>
+    <input type="text" id="shop" placeholder="ma-boutique.myshopify.com" />
+    <div class="hint">Format exact : votre-boutique.myshopify.com</div>
+    <button onclick="startAuth()">Connecter avec Shopify →</button>
+    <div class="secure">🔒 Connexion sécurisée via OAuth 2.0</div>
+    <div class="error" id="error-box"></div>
+  </div>
+
+  <div class="token-section" id="token-section">
+    <div class="success">✓ Autorisation accordée par Shopify !</div>
+    <div style="font-size:13px;font-weight:500;color:#374151;margin-bottom:6px;">Code d'autorisation reçu</div>
+    <div class="token-box" id="code-box"></div>
+    <div class="step-info">
+      ℹ️ Shopify utilise maintenant OAuth — copiez ce code et donnez-le à Claude pour finaliser la connexion.
+    </div>
+    <button class="copy-btn" onclick="copyCode()">Copier le code</button>
+  </div>
+</div>
+
+<script>
+  const CLIENT_ID = 'd68894d85af40db9d5a82bdb46394fbb';
+  const REDIRECT_URI = window.location.origin + window.location.pathname;
+  const SCOPES = 'read_products,write_products,read_customers,read_orders,read_inventory';
+
+  function startAuth() {
+    const shop = document.getElementById('shop').value.trim()
+      .replace(/https?:\/\//, '').replace(/\/$/, '');
+
+    if (!shop || !shop.includes('.myshopify.com')) {
+      showError('Veuillez entrer un domaine valide (ex: ma-boutique.myshopify.com)');
+      return;
+    }
+
+    const state = Math.random().toString(36).substring(2);
+    sessionStorage.setItem('shopify_state', state);
+    sessionStorage.setItem('shopify_shop', shop);
+
+    const authUrl = `https://${shop}/admin/oauth/authorize`
+      + `?client_id=${CLIENT_ID}`
+      + `&scope=${encodeURIComponent(SCOPES)}`
+      + `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`
+      + `&state=${state}`;
+
+    window.location.href = authUrl;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function copyCode() {
+    const code = document.getElementById('code-box').textContent;
+    navigator.clipboard.writeText(code);
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.textContent = 'Copier le code', 2000);
+  }
+
+  // Vérifier si on revient du callback Shopify
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const state = params.get('state');
+  const savedState = sessionStorage.getItem('shopify_state');
+
+  if (code && state && state === savedState) {
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('code-box').textContent = code;
+    document.getElementById('token-section').classList.add('visible');
+    // Nettoyer l'URL
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+</script>
+</body>
+</html>
